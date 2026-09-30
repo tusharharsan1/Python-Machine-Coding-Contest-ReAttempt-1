@@ -1,0 +1,2 @@
+class InvalidShowSeatException(Exception):
+    pass
