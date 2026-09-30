@@ -38,43 +38,42 @@ class TicketService:
             SeatsNotAvailableException: if any of the seats is BLOCKED or BOOKED. Nothing is booked then.
         """
 
-        # TODO Step 1: Put ALL the steps below inside the lock:
-        #       with self._lock:
-        #           ...steps 2 to 7, indented...
-        #   Why? Two users can both read "this seat is AVAILABLE" before either of them blocks it,
-        #   and then both would get the seat. Only one thread at a time can be in the `with` block, so the
-        #   second user reads the seat only AFTER the first user has already blocked it.
+        # Step 1: only one thread at a time can run the steps below.
+        # Without the lock, two users could both read "this seat is AVAILABLE" before either of them
+        # blocks it, and both would get the seat.
+        with self._lock:
 
-        # TODO Step 2: Validate the user.
-        #   Get the user with self.user_repository.find_by_id(user_id).
-        #   If there is no such user, raise InvalidUserException("...some message...").
+            # Step 2: the user must exist
+            user = self.user_repository.find_by_id(user_id)
+            if user is None:
+                raise InvalidUserException(f"User with id {user_id} not found")
 
-        # TODO Step 3: Fetch the requested show seats.
-        #   show_seats = self.show_seat_repository.find_show_seats_by_id_in(show_seat_ids)
-        #   Every requested id must have been found, so the number of show seats you got must be equal to
-        #   len(show_seat_ids). If not (unknown id, repeated id) or if the list is empty,
-        #   raise InvalidShowSeatException("...some message...").
-        #   Then get the show:  show = show_seats[0].show   (all the seats belong to the same show)
+            # Step 3: every requested show seat must exist
+            show_seats = self.show_seat_repository.find_show_seats_by_id_in(show_seat_ids)
+            if len(show_seat_ids) == 0 or len(show_seats) != len(show_seat_ids):
+                raise InvalidShowSeatException("Some of the show seat ids are invalid")
+            show = show_seats[0].show  # all the seats belong to the same show
 
-        # TODO Step 4: Check that ALL the show seats are AVAILABLE.
-        #   Collect the ids of the show seats whose status is NOT SeatStatus.AVAILABLE into a list.
-        #   If this list is not empty, raise SeatsNotAvailableException with a message like
-        #   "Seats are not available: [3, 4]" (the ids of the unavailable show seats).
-        #   Do this check for ALL the seats BEFORE you change any seat.
+            # Step 4: every show seat must be AVAILABLE. We check ALL of them before changing anything.
+            unavailable_ids = []
+            for show_seat in show_seats:
+                if show_seat.status != SeatStatus.AVAILABLE:
+                    unavailable_ids.append(show_seat.id)
+            if len(unavailable_ids) > 0:
+                raise SeatsNotAvailableException(f"Seats are not available: {sorted(unavailable_ids)}")
 
-        # TODO Step 5: Mark every show seat as blocked: show_seat.status = SeatStatus.BLOCKED
-        #   You do not need to save them separately. SQLAlchemy notices the change, and it is saved
-        #   together with the ticket in the next step.
+            # Step 5: block all the show seats (saved together with the ticket in the next step)
+            for show_seat in show_seats:
+                show_seat.status = SeatStatus.BLOCKED
 
-        # TODO Step 6: Create a Ticket and save it.
-        #   ticket = Ticket()
-        #   ticket.seats = the Seat of every show seat (show_seat.seat)
-        #   ticket.show = the show from Step 3
-        #   ticket.time_of_booking = datetime.now()
-        #   ticket.user = the user from Step 2
-        #   ticket.status = TicketStatus.UNPAID
-        #   ticket = self.ticket_repository.save(ticket)
+            # Step 6: create the ticket and save it
+            ticket = Ticket()
+            ticket.seats = [show_seat.seat for show_seat in show_seats]
+            ticket.show = show
+            ticket.time_of_booking = datetime.now()
+            ticket.user = user
+            ticket.status = TicketStatus.UNPAID
+            ticket = self.ticket_repository.save(ticket)
 
-        # TODO Step 7: Return the saved ticket (and delete the line `return None` below).
-
-        return None
+            # Step 7: return the saved ticket
+            return ticket

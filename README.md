@@ -28,7 +28,7 @@ Follow these steps to complete the assignment:
 
 ### Step 3: Implement the Service Logic (`services/ticket_service.py`)
 - The class skeleton is already provided with the repositories and a lock.
-- Implement `book_ticket(show_seat_ids, user_id)` following the numbered `TODO` steps in the file:
+- Implement `book_ticket(show_seat_ids, user_id)` following these steps:
   1. Run everything below inside the lock, so that two requests can never book the same seat.
   2. Validate the user exists (raise `InvalidUserException` if not found).
   3. Fetch the requested `ShowSeat`s using `find_show_seats_by_id_in(show_seat_ids)`. Verify that all requested seats were found (raise `InvalidShowSeatException` if not).
